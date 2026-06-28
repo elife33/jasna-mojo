@@ -36,7 +36,7 @@ struct VideoReaderFactory:
         if device_type == "cuda":
             # Try NVIDIA NVDEC reader
             var try_nvdec = Python.evaluate("""
-def _try_nvdec(path, batch_size, device, metadata) raises:
+def _try_nvdec(path, batch_size, device, metadata):
     try:
         from jasna.media.video_nv_decoder import NvVideoReader
         return NvVideoReader(
@@ -47,14 +47,15 @@ def _try_nvdec(path, batch_size, device, metadata) raises:
         )
     except Exception:
         return None
-""")
-            var nv_reader = try_nvdec(input_video, batch_size, device, metadata)
+""", file=True)
+
+            var nv_reader = try_nvdec._try_nvdec(input_video, batch_size, device, metadata)
             if nv_reader is not None:
                 return nv_reader
 
         # Fall back to PyAV reader (cross-platform)
         var create_pyav = Python.evaluate("""
-def _create_pyav(path, batch_size, device, metadata) raises:
+def _create_pyav(path, batch_size, device, metadata):
     from jasna.media.video_reader import PyAVVideoReader
     return PyAVVideoReader(
         video_path=path,
@@ -62,5 +63,6 @@ def _create_pyav(path, batch_size, device, metadata) raises:
         device=device,
         metadata=metadata,
     )
-""")
-        return create_pyav(input_video, batch_size, device, metadata)
+""", file=True)
+
+        return create_pyav._create_pyav(input_video, batch_size, device, metadata)

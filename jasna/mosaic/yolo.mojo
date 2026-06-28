@@ -42,12 +42,13 @@ struct YoloMosaicDetectionModel:
 
         # Load YOLO model via ultralytics
         var load_fn = Python.evaluate("""
-def _load_yolo(path, device, fp16) raises:
+def _load_yolo(path, device, fp16):
     from ultralytics import YOLO
     model = YOLO(String(path))
     return model
-""")
-        self._model = load_fn(model_path, device, fp16)
+""", file=True)
+
+        self._model = load_fn._load_yolo(model_path, device, fp16)
 
     def close(mut self) raises:
         """Close the model."""
@@ -75,7 +76,7 @@ def _load_yolo(path, device, fp16) raises:
 
         # Run YOLO inference via Python interop
         var detect_fn = Python.evaluate("""
-def _detect(model, frames, imgsz, score_threshold, device, target_h, target_w) raises:
+def _detect(model, frames, imgsz, score_threshold, device, target_h, target_w):
     import numpy as np
     import torch
     
@@ -134,8 +135,9 @@ def _detect(model, frames, imgsz, score_threshold, device, target_h, target_w) r
             masks_list.append(torch.zeros((0, mask_h, mask_w), dtype=torch.bool))
     
     return boxes_list, masks_list
-""")
-        var (boxes_list, masks_list) = detect_fn(
+""", file=True)
+
+        var (boxes_list, masks_list) = detect_fn._detect(
             self._model, frames, YoloMosaicDetectionModel.DEFAULT_IMGSZ(),
             self.score_threshold, self.device, target_h, target_w,
         )

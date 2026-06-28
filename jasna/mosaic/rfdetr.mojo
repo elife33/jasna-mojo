@@ -48,24 +48,26 @@ struct RfDetrMosaicDetectionModel:
     def _load_onnx_cuda(mut self) raises:
         """Load ONNX model with CUDA/TensorRT provider."""
         var load_fn = Python.evaluate("""
-def _load_onnx(path, device, fp16) raises:
+def _load_onnx(path, device, fp16):
     import onnxruntime as ort
     providers = ['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider']
     session = ort.InferenceSession(String(path), providers=providers)
     return session
-""")
-        self._session = load_fn(self.onnx_path, self.device, self.fp16)
+""", file=True)
+
+        self._session = load_fn._load_onnx(self.onnx_path, self.device, self.fp16)
         self._input_name = String(self._session.get_inputs()[0].name)
 
     def _load_onnx_cpu(mut self) raises:
         """Load ONNX model with CPU provider."""
         var load_fn = Python.evaluate("""
-def _load_onnx_cpu(path) raises:
+def _load_onnx_cpu(path):
     import onnxruntime as ort
     session = ort.InferenceSession(String(path), providers=['CPUExecutionProvider'])
     return session
-""")
-        self._session = load_fn(self.onnx_path)
+""", file=True)
+
+        self._session = load_fn._load_onnx(self.onnx_path)
         self._input_name = String(self._session.get_inputs()[0].name)
 
     def close(mut self) raises:
@@ -113,7 +115,7 @@ def _load_onnx_cpu(path) raises:
 
         # Post-process outputs to get boxes and masks
         var postprocess = Python.evaluate("""
-def _postprocess(outputs, batch_size, score_threshold, target_h, target_w, input_h, input_w) raises:
+def _postprocess(outputs, batch_size, score_threshold, target_h, target_w, input_h, input_w):
     import numpy as np
     import torch
     
@@ -159,8 +161,9 @@ def _postprocess(outputs, batch_size, score_threshold, target_h, target_w, input
             masks_list.append(masks)
     
     return boxes_list, masks_list
-""")
-        var (boxes_list, masks_list) = postprocess(
+""", file=True)
+
+        var (boxes_list, masks_list) = postprocess._postprocess(
             outputs, batch_size, self.score_threshold,
             target_h, target_w, input_h, input_w,
         )

@@ -53,29 +53,31 @@ def create_secondary_restorer(
         return Python()
     elif lower_name == "tvai":
         var TvaiSecondaryRestorer = Python.evaluate("""
-def _create_tvai(ffmpeg_path, tvai_args, scale, num_workers) raises:
+def _create_tvai(ffmpeg_path, tvai_args, scale, num_workers):
     from jasna.restorer.tvai_secondary_restorer import TvaiSecondaryRestorer
-    return TvaiSecondaryRestorer(
+    return TvaiSecondaryRestorer._create_tvai(
         ffmpeg_path=ffmpeg_path,
         tvai_args=tvai_args,
         scale=scale,
         num_workers=num_workers,
     )
-""")
+""", file=True)
+
         var full_tvai_args = tvai_model + ":scale=" + String(tvai_scale) + ":" + tvai_args
-        return TvaiSecondaryRestorer(tvai_ffmpeg_path, full_tvai_args, tvai_scale, tvai_workers)
+        return TvaiSecondaryRestorer._create_tvai(tvai_ffmpeg_path, full_tvai_args, tvai_scale, tvai_workers)
 
     elif lower_name == "unet-4x":
         var Unet4x = Python.evaluate("""
-def _create_unet4x(device, fp16) raises:
+def _create_unet4x(device, fp16):
     from jasna.restorer.unet4x_secondary_restorer import Unet4xSecondaryRestorer
     return Unet4xSecondaryRestorer(device=device, fp16=fp16)
-""")
-        return Unet4x(device, fp16)
+""", file=True)
+
+        return Unet4x._create_unet4x(device, fp16)
 
     elif lower_name == "rtx-super-res":
         var RtxSuperRes = Python.evaluate("""
-def _create_rtx(device, scale, quality, denoise, deblur) raises:
+def _create_rtx(device, scale, quality, denoise, deblur):
     from jasna.restorer.rtx_superres_secondary_restorer import RtxSuperresSecondaryRestorer
     return RtxSuperresSecondaryRestorer(
         device=device,
@@ -84,10 +86,11 @@ def _create_rtx(device, scale, quality, denoise, deblur) raises:
         denoise=denoise,
         deblur=deblur,
     )
-""")
+""", file=True)
+
         var dn = PythonObject() if rtx_denoise == "none" else PythonObject(rtx_denoise)
         var db = PythonObject() if rtx_deblur == "none" else PythonObject(rtx_deblur)
-        return RtxSuperRes(device, rtx_scale, rtx_quality, dn, db)
+        return RtxSuperRes._create_rtx(device, rtx_scale, rtx_quality, dn, db)
 
     else:
         raise Error("Unsupported secondary restoration: " + name)

@@ -7,9 +7,9 @@ from std.python import Python, PythonObject
 
 
 # Constants
-alias MIN_GPU_COMPUTE_MAJOR = 7
-alias MIN_GPU_COMPUTE_MINOR = 5
-alias MIN_DRIVER_VERSION = 590
+comptime MIN_GPU_COMPUTE_MAJOR = 7
+comptime MIN_GPU_COMPUTE_MINOR = 5
+comptime MIN_DRIVER_VERSION = 590
 
 
 # ============================================================================

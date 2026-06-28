@@ -5,8 +5,8 @@ from std.python import Python, PythonObject
 
 
 # Blend parameters
-alias BLEND_DILATION_RATIO = 0.028
-alias BLEND_FALLOFF_RATIO = 0.028
+comptime BLEND_DILATION_RATIO = 0.028
+comptime BLEND_FALLOFF_RATIO = 0.028
 
 # Kernel cache for box blur (stored as Python dict for mutability)
 var _kernel_cache: PythonObject = PythonObject()

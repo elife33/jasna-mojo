@@ -79,13 +79,14 @@ def decode_detect_loop(
 
         # Create video reader via Python interop
         var VideoReaderFactory = Python.evaluate("""
-def _create_reader(input_video, batch_size, device, metadata) raises:
+def _create_reader(input_video, batch_size, device, metadata):
     from jasna.media.video_reader import VideoReaderFactory
     return VideoReaderFactory.create_reader(input_video, batch_size=batch_size, device=device, metadata=metadata)
-""")
+""", file=True)
+
 
         with torch.inference_mode():
-            var reader = VideoReaderFactory(input_video, batch_size, device, metadata)
+            var reader = VideoReaderFactory._create_reader(input_video, batch_size, device, metadata)
 
             if progress is not None:
                 progress.init()
@@ -302,10 +303,11 @@ def _process_ended(ended_clips, tracker, discard_margin, blend_frames,
         clip_queue=clip_queue,
         frame_shape=(frame_h, frame_w),
     )
-""")
+""", file=True)
+
         # Convert ended_clips to Python objects
         var py_ended = Python.list([PythonObject(ec) for ec in ended_clips])
-        process_ended(
+        process_ended._process_ended(
             py_ended, tracker, discard_margin, blend_frames,
             max_clip_size, blend_buffer, crop_buffers, clip_queue,
             frame_h, frame_w,
@@ -367,7 +369,7 @@ def primary_restore_loop(
 
             # Run primary restoration via Python interop
             var result = Python.evaluate("""
-def _run_primary(restoration_pipeline, item) raises:
+def _run_primary(restoration_pipeline, item):
     return restoration_pipeline.prepare_and_run_primary(
         item.clip,
         item.raw_crops,
@@ -376,16 +378,18 @@ def _run_primary(restoration_pipeline, item) raises:
         item.keep_end,
         item.crossfade_weights,
     )
-""")(restoration_pipeline, item)
+""", file=True)
+            result = result._run_primary(restoration_pipeline, item)
 
             if len(activity_heartbeat) > 0:
                 activity_heartbeat[0] = Float64(time.monotonic())
 
             # Check if secondary prefers CPU input
             var prefers_cpu = Python.evaluate("""
-def _check_cpu(restoration_pipeline) raises:
+def _check_cpu(restoration_pipeline):
     return bool(getattr(restoration_pipeline, 'secondary_prefers_cpu_input', False))
-""")(restoration_pipeline)
+""", file=True)
+            prefers_cpu = prefers_cpu._check_cpu(restoration_pipeline)
 
             if prefers_cpu:
                 result.primary_raw = result.primary_raw.cpu()
@@ -449,20 +453,22 @@ def secondary_restore_loop(
 
             # Run secondary restoration
             var restored_frames = Python.evaluate("""
-def _run_secondary(restoration_pipeline, pr) raises:
+def _run_secondary(restoration_pipeline, pr):
     return restoration_pipeline._run_secondary(
         pr.primary_raw, pr.keep_start, pr.keep_end
     )
-""")(restoration_pipeline, item)
+""", file=True)
+            restored_frames = restored_frames._run_secondary(restoration_pipeline, item)
 
             if len(activity_heartbeat) > 0:
                 activity_heartbeat[0] = Float64(time.monotonic())
 
             # Build secondary result
             var sr = Python.evaluate("""
-def _build_sr(restoration_pipeline, pr, restored_frames) raises:
+def _build_sr(restoration_pipeline, pr, restored_frames):
     return restoration_pipeline.build_secondary_result(pr, restored_frames)
-""")(restoration_pipeline, item, restored_frames)
+""", file=True)
+            sr = sr._build_sr(restoration_pipeline, item, restored_frames)
 
             encode_queue.put(sr, frame_count=Int(sr.keep_end))
 
@@ -511,12 +517,13 @@ def blend_encode_loop(
 
         # Create second reader for original frames
         var VideoReaderFactory = Python.evaluate("""
-def _create_reader(input_video, batch_size, device, metadata) raises:
+def _create_reader(input_video, batch_size, device, metadata):
     from jasna.media.video_reader import VideoReaderFactory
     return VideoReaderFactory.create_reader(input_video, batch_size=batch_size, device=device, metadata=metadata)
-""")
+""", file=True)
 
-        with VideoReaderFactory(input_video, batch_size, reader_device, metadata) as reader2:
+
+        with VideoReaderFactory._create_reader(input_video, batch_size, reader_device, metadata) as reader2:
             # Create frame generator
             var frame_iterator = PythonObject()
             if Bool(py=_hasattr(reader2, "frames_with_seek")):
@@ -526,11 +533,12 @@ def _create_reader(input_video, batch_size, device, metadata) raises:
 
             # Flatten frame generator
             var frame_gen = Python.evaluate("""
-def _flat_frames(frame_iterator) raises:
+def _flat_frames(frame_iterator):
     for batch, pts in frame_iterator:
         for i in range(len(pts)):
             yield batch[i]
-""")(frame_iterator)
+""", file=True)
+            frame_gen = frame_gen._flat_frames(frame_iterator)
 
             var secondary_done = False
             var frames_encoded = 0
@@ -590,14 +598,15 @@ def _flat_frames(frame_iterator) raises:
                 # Memory pressure relief for MPS
                 if String(py=reader_device.type) == "cpu" and String(py=device.type) == "mps" and frames_encoded % 256 == 0:
                     var relieve = Python.evaluate("""
-def _relieve() raises:
+def _relieve():
     import gc
     gc.collect()
     import torch
     if _hasattr(torch, 'mps'):
         torch.mps.empty_cache()
-""")
-                    relieve()
+""", file=True)
+
+                    relieve._relieve()
 
             if vram_offloader is not None:
                 vram_offloader.pause_stall_check()

@@ -53,10 +53,11 @@ def _create_encoder(output_path, device, metadata, codec, encoder_settings,
         start_frame=start_frame,
         duration_frames=duration_frames,
     )
-""")
+""", file=True)
+
         var sf = PythonObject() if start_frame is None else PythonObject(start_frame.value)
         var df = PythonObject() if duration_frames is None else PythonObject(duration_frames.value)
-        return create_fn(
+        return create_fn._create_encoder(
             output_path, device, metadata, codec, encoder_settings,
             stream_mode, working_directory, sf, df,
         )

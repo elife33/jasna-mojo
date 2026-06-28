@@ -7,10 +7,10 @@ from jasna.pipeline_items import RawCrop, BBox
 
 
 # Constants
-alias RESTORATION_SIZE = 256
-alias BORDER_RATIO = 0.06
-alias MIN_BORDER = 20
-alias MAX_EXPANSION_FACTOR = 1.0
+comptime RESTORATION_SIZE = 256
+comptime BORDER_RATIO = 0.06
+comptime MIN_BORDER = 20
+comptime MAX_EXPANSION_FACTOR = 1.0
 
 
 # ============================================================================

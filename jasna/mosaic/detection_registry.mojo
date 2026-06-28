@@ -10,7 +10,7 @@ from std.collections import Set, Dict, List
 # Model name sets
 # ============================================================================
 
-alias DEFAULT_DETECTION_MODEL_NAME = "rfdetr-v5"
+comptime DEFAULT_DETECTION_MODEL_NAME = "rfdetr-v5"
 
 
 def _get_rfdetr_names() raises -> Set[String]:
@@ -164,14 +164,15 @@ def precompile_detection_engine(
 
     if is_rfdetr_model(det_name):
         var compile_fn = Python.evaluate("""
-def _compile_rfdetr(path, device, batch_size, fp16) raises:
+def _compile_rfdetr(path, device, batch_size, fp16):
     from jasna.mosaic.rfdetr import compile_rfdetr_engine
     compile_rfdetr_engine(path, device, batch_size=int(batch_size), fp16=bool(fp16))
-""")
-        compile_fn(detection_model_path, device, batch_size, fp16)
+""", file=True)
+
+        compile_fn._compile_rfdetr(detection_model_path, device, batch_size, fp16)
     elif is_yolo_model(det_name):
         var compile_fn = Python.evaluate("""
-def _compile_yolo(path, batch, fp16, imgsz, device) raises:
+def _compile_yolo(path, batch, fp16, imgsz, device):
     from jasna.mosaic.yolo_tensorrt_compilation import compile_yolo_to_tensorrt_engine
     from jasna.mosaic.yolo import YoloMosaicDetectionModel
     compile_yolo_to_tensorrt_engine(
@@ -181,5 +182,6 @@ def _compile_yolo(path, batch, fp16, imgsz, device) raises:
         imgsz=YoloMosaicDetectionModel.DEFAULT_IMGSZ,
         device=device,
     )
-""")
-        compile_fn(detection_model_path, batch_size, fp16, 640, device)
+""", file=True)
+
+        compile_fn._compile_rfdetr(detection_model_path, batch_size, fp16, 640, device)

@@ -19,11 +19,12 @@ def run_streaming(
         hls_server: Optional existing HLS server
     """
     var run_fn = Python.evaluate("""
-def _run_streaming(pipeline, port, segment_duration, hls_server) raises:
+def _run_streaming(pipeline, port, segment_duration, hls_server):
     from jasna.streaming_pipeline import run_streaming
     run_streaming(pipeline, port=port, segment_duration=segment_duration, hls_server=hls_server)
-""")
-    run_fn(pipeline, port, segment_duration, hls_server)
+""", file=True)
+
+    run_fn._run_streaming(pipeline, port, segment_duration, hls_server)
 
 
 # ============================================================================
@@ -45,11 +46,12 @@ struct HlsStreamingServer:
         port: Int = 8765,
     ):
         var create_fn = Python.evaluate("""
-def _create_hls(segment_duration, port) raises:
+def _create_hls(segment_duration, port):
     from jasna.streaming import HlsStreamingServer
     return HlsStreamingServer(segment_duration=segment_duration, port=port)
-""")
-        self._server = create_fn(segment_duration, port)
+""", file=True)
+
+        self._server = create_fn._create_hls(segment_duration, port)
 
     def start(self) raises:
         """Start the HLS server."""

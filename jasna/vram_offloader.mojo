@@ -95,8 +95,9 @@ def _start_offloader(device, blend_buffer, crop_buffers, crop_lock,
         offloader.set_pipeline_activity_heartbeat(activity_heartbeat)
     offloader.start()
     return offloader
-""")
-        self._thread = start_fn(
+""", file=True)
+
+        self._thread = start_fn._start_offloader(
             self.device, self._blend_buffer, self._crop_buffers, self._crop_lock,
             self._clip_queue, self._secondary_queue, self._encode_queue, self._metadata_queue,
             self._encode_heartbeat, self._activity_heartbeat,
@@ -109,19 +110,21 @@ def _start_offloader(device, blend_buffer, crop_buffers, crop_lock,
         self._running = False
         if self._thread is not None:
             var stop_fn = Python.evaluate("""
-def _stop_offloader(offloader) raises:
+def _stop_offloader(offloader):
     if offloader is not None:
         offloader.stop()
-""")
-            stop_fn(self._thread)
+""", file=True)
+
+            stop_fn._stop_offloader(self._thread)
             self._thread = PythonObject()
 
     def pause_stall_check(self) raises:
         """Pause the stall check temporarily."""
         if self._thread is not None:
             var pause_fn = Python.evaluate("""
-def _pause(offloader) raises:
+def _pause(offloader):
     if offloader is not None:
         offloader.pause_stall_check()
-""")
-            pause_fn(self._thread)
+""", file=True)
+
+            pause_fn._pause(self._thread)

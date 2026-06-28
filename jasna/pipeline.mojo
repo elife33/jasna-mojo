@@ -191,18 +191,19 @@ struct Pipeline:
         # Create frame writer wrapper
         var frame_writer = Python.evaluate("""
 class _OfflineFrameWriter:
-    def __init__(self, encoder_ctx, heartbeat) raises:
+    def __init__(self, encoder_ctx, heartbeat):
         self.encoder = encoder_ctx
         self.heartbeat = heartbeat
-    def write(self, frame, pts) raises:
+    def write(self, frame, pts):
         self.encoder.write(frame, pts)
         import time
         self.heartbeat[0] = time.monotonic()
-    def after_write(self, count) raises:
+    def after_write(self, count):
         pass
-    def close(self) raises:
+    def close(self):
         self.encoder.close()
-""")(encoder_ctx, encode_heartbeat)
+""", file=True)
+        var frame_writer = frame_writer._OfflineFrameWriter(encoder_ctx, encode_heartbeat)
 
         var seek_ts = (Float64(py=self.start_frame.value) / metadata.video_fps) if self.start_frame is not None else -1.0
 
@@ -210,23 +211,25 @@ class _OfflineFrameWriter:
         var threads = Python.evaluate("""
 import threading
 
-def _create_threads(decode_fn, primary_fn, secondary_fn, blend_fn) raises:
+def _create_threads(decode_fn, primary_fn, secondary_fn, blend_fn):
     return [
         threading.Thread(target=decode_fn, name="DecodeDetect", daemon=True),
         threading.Thread(target=primary_fn, name="PrimaryRestore", daemon=True),
         threading.Thread(target=secondary_fn, name="SecondaryRestore", daemon=True),
         threading.Thread(target=blend_fn, name="BlendEncode", daemon=True),
     ]
-""")
+""", file=True)
+
 
         # Define thread targets as Python callables that call back into Mojo
         # This uses Python's threading with Mojo function callbacks
         var decode_target = Python.evaluate("""
-def _make_decode_target(mojo_decode, args) raises:
-    def _target() raises:
+def _make_decode_target(mojo_decode, args):
+    def _target():
         mojo_decode(*args)
     return _target
-""")
+""", file=True)
+
 
         # Build thread arguments
         var decode_args = Python.list([
@@ -390,7 +393,8 @@ def _run_pipeline(input_video, batch_size, device, metadata, detection_model,
 
     if error_holder:
         raise error_holder[0]
-""")
+""", file=True)
+
 
         # Convert encoder_settings to Python dict
         var py_encoder_settings = Python.dict()
@@ -400,7 +404,7 @@ def _run_pipeline(input_video, batch_size, device, metadata, detection_model,
         var sf = PythonObject() if self.start_frame is None else PythonObject(self.start_frame.value)
         var df = PythonObject() if self.duration_frames is None else PythonObject(self.duration_frames.value)
 
-        run_pipeline(
+        run_pipeline._run_pipeline(
             PythonObject(self.input_video),
             PythonObject(self.batch_size),
             self.device,
@@ -443,11 +447,12 @@ def _run_pipeline(input_video, batch_size, device, metadata, detection_model,
     ):
         """Run the pipeline in streaming mode (HLS)."""
         var run_streaming_fn = Python.evaluate("""
-def _run_streaming(pipeline, port, segment_duration, hls_server) raises:
+def _run_streaming(pipeline, port, segment_duration, hls_server):
     from jasna.streaming_pipeline import run_streaming
     run_streaming(pipeline, port=port, segment_duration=segment_duration, hls_server=hls_server)
-""")
-        run_streaming_fn(
+""", file=True)
+
+        run_streaming_fn._run_streaming(
             PythonObject(self),
             PythonObject(port),
             PythonObject(segment_duration),

@@ -27,14 +27,14 @@ import threading
 from collections import deque
 
 class _FrameQueue:
-    def __init__(self, max_frames) raises:
+    def __init__(self, max_frames):
         self._deque = deque()
         self._cond = threading.Condition()
         self._max_frames = max_frames
         self._current_frames = 0
         self._unfinished_tasks = 0
 
-    def put(self, item, frame_count=0) raises:
+    def put(self, item, frame_count=0):
         with self._cond:
             if frame_count > 0:
                 while self._current_frames > 0 and self._current_frames + frame_count > self._max_frames:
@@ -44,7 +44,7 @@ class _FrameQueue:
             self._unfinished_tasks += 1
             self._cond.notify_all()
 
-    def get(self, timeout=None) raises:
+    def get(self, timeout=None):
         with self._cond:
             if not self._deque:
                 self._cond.wait(timeout=timeout)
@@ -55,7 +55,7 @@ class _FrameQueue:
             self._cond.notify_all()
             return item
 
-    def get_nowait(self) raises:
+    def get_nowait(self):
         with self._cond:
             if not self._deque:
                 raise Empty
@@ -64,18 +64,19 @@ class _FrameQueue:
             self._cond.notify_all()
             return item
 
-    def qsize(self) raises:
+    def qsize(self):
         with self._cond:
             return len(self._deque)
 
-    def empty(self) raises:
+    def empty(self):
         with self._cond:
             return len(self._deque) == 0
 
-    def current_frames(self) raises:
+    def current_frames(self):
         with self._cond:
             return self._current_frames
-""")
+""", file=True)
+
         self._py_queue = self._py_queue(max_frames)
 
     def put(self, item: PythonObject, frame_count: Int = 0) raises:

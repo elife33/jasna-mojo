@@ -164,7 +164,7 @@ def parse_args(argv: List[String]) raises -> Args:
 
     # Build parser in Python for full argparse support
     var build_parser = Python.evaluate("""
-def _build_parser(default_model_path) raises:
+def _build_parser(default_model_path):
     import argparse
     parser = argparse.ArgumentParser(prog="jasna")
     parser.add_argument("--version", action="version", version="0.6.0-alpha5")
@@ -231,10 +231,11 @@ def _build_parser(default_model_path) raises:
     benchmark_group.add_argument("--benchmark-video", type=str, action="append", default=None)
 
     return parser
-""")
+""", file=True)
+
 
     var default_model_path = _default_model_weight_path("lada_mosaic_restoration_model_generic_v1.2.pth")
-    var parser = build_parser(default_model_path)
+    var parser = build_parser._build_parser(default_model_path)
 
     # Parse args
     var py_argv = Python.list([PythonObject(a) for a in argv])
@@ -367,10 +368,11 @@ def _run_cli() raises:
     # Handle benchmark mode
     if args.benchmark:
         var run_benchmark = Python.evaluate("""
-def _run_benchmark(args) raises:
+def _run_benchmark(args):
     from jasna.benchmark import run_benchmark_cli
     run_benchmark_cli(args)
-""")
+""", file=True)
+
         var py_args = Python.dict()
         py_args["input"] = args.input
         py_args["output"] = args.output
@@ -380,7 +382,7 @@ def _run_benchmark(args) raises:
         py_args["benchmark_filter"] = args.benchmark_filter
         var py_bv = Python.list([PythonObject(v) for v in args.benchmark_video])
         py_args["benchmark_video"] = py_bv
-        run_benchmark(py_args)
+        run_benchmark._run_benchmark(py_args)
         return
 
     var is_streaming = args.stream
@@ -415,11 +417,12 @@ def _run_benchmark(args) raises:
 
     # Suppress noise
     var install_noise = Python.evaluate("""
-def _install_noise() raises:
+def _install_noise():
     from jasna._suppress_noise import install
     install()
-""")
-    install_noise()
+""", file=True)
+
+    install_noise._install_noise()
 
     var torch = Python.import_module("torch")
 
@@ -431,15 +434,16 @@ def _install_noise() raises:
     var current_frame_shared = Python.list([start_frame_val])
 
     var signal_handler = Python.evaluate("""
-def _make_signal_handler(pause_requested) raises:
-    def handler(signum, frame) raises:
+def _make_signal_handler(pause_requested):
+    def handler(signum, frame):
         import signal as sig
         pause_requested[0] = True
         name = sig.Signals(signum).name
         print(f"\\nReceived {name}; finalizing partial output before exit...")
     return handler
-""")
-    var handler = signal_handler(pause_requested)
+""", file=True)
+
+    var handler = signal_handler._make_signal_handler(pause_requested)
     signal.signal(signal.SIGUSR1, handler)
     signal.signal(signal.SIGINT, handler)
 
@@ -506,11 +510,12 @@ def _make_signal_handler(pause_requested) raises:
     if not Bool(det_path.exists()):
         print("Warning: Detection model weights not found at " + String(py=det_path) + ". Using mock detection model.")
         var create_mock = Python.evaluate("""
-def _create_mock(device) raises:
+def _create_mock(device):
     from jasna.mock_detection import create_mock_detection_model
     return create_mock_detection_model(device)
-""")
-        detection_model = create_mock(device)
+""", file=True)
+
+        detection_model = create_mock._create_mock(device)
 
     # Check restoration model path
     var restoration_model_path = args.restoration_model_path
@@ -544,7 +549,7 @@ def _create_mock(device) raises:
         raise Error("Unsupported restoration model: " + args.restoration_model_name)
 
     # Engine compilation (NVIDIA only)
-    var compile_result = Python.evaluate("""
+    var compile_mod = Python.evaluate("""
 def _ensure_engines(device, fp16, compile_basicvsrpp, restoration_model_path,
                     max_clip_size, detection_model_name, detection_model_path,
                     batch_size, secondary_name):
@@ -568,7 +573,8 @@ def _ensure_engines(device, fp16, compile_basicvsrpp, restoration_model_path,
         class _MockResult:
             use_basicvsrpp_tensorrt = False
         return _MockResult()
-""")(device, fp16, args.compile_basicvsrpp, restoration_model_path,
+""", file=True)
+    var compile_result = compile_mod._ensure_engines(device, fp16, args.compile_basicvsrpp, restoration_model_path,
      tuned_clip, detection_model_name, det_path, tuned_batch,
      args.secondary_restoration)
 
@@ -631,9 +637,10 @@ def _build_pipeline(device, fp16, restoration_model_path, max_clip_size,
         denoise_strength=denoise_strength,
         denoise_step=denoise_step_val,
     ), restorer, secondary_restorer
-""")
+""", file=True)
 
-    var pipeline_result = build_pipeline(
+
+    var pipeline_result = build_pipeline._build_pipeline(
         device, fp16, restoration_model_path, tuned_clip, use_tensorrt,
         secondary_name, args.denoise, args.denoise_step,
         args.tvai_ffmpeg_path, args.tvai_model, args.tvai_scale, args.tvai_args, args.tvai_workers,
@@ -646,7 +653,7 @@ def _build_pipeline(device, fp16, restoration_model_path, max_clip_size,
     # Build detection model if not already set
     if detection_model is None:
         var build_detection = Python.evaluate("""
-def _build_detection(det_name, det_path, batch_size, device, score_threshold, max_candidates, fp16) raises:
+def _build_detection(det_name, det_path, batch_size, device, score_threshold, max_candidates, fp16):
     from jasna.mosaic.rfdetr import RfDetrMosaicDetectionModel
     from jasna.mosaic.yolo import YoloMosaicDetectionModel
     from jasna.mosaic.detection_registry import is_rfdetr_model, is_yolo_model
@@ -663,16 +670,18 @@ def _build_detection(det_name, det_path, batch_size, device, score_threshold, ma
                 score_threshold=score_threshold, max_nms=max_candidates, fp16=fp16,
             )
     return None
-""")(detection_model_name, det_path, tuned_batch, device,
-     detection_score_threshold, tuned_candidates, fp16)
+""", file=True)
+        detection_model = build_detection._build_detection(detection_model_name, det_path, tuned_batch, device,
+         detection_score_threshold, tuned_candidates, fp16)
 
         if detection_model is None:
             var create_mock = Python.evaluate("""
-def _create_mock(device) raises:
+def _create_mock(device):
     from jasna.mock_detection import create_mock_detection_model
     return create_mock_detection_model(device)
-""")
-            detection_model = create_mock(device)
+""", file=True)
+
+            detection_model = create_mock._create_mock(device)
 
     # Build encoder settings dict
     var enc_dict = Dict[String, PythonObject]()
@@ -718,18 +727,20 @@ def _make_pipeline(input_video, output_video, detection_model, restoration_pipel
         pause_requested=pause_requested,
         status_file_path=Path(status_file_path),
     )
-""")
+""", file=True)
+
 
     var pipeline = PythonObject()
     try:
         if is_streaming and args.input == "":
             # Streaming mode without input — wait for video selection
             var HlsServer = Python.evaluate("""
-def _create_hls(segment_duration, port) raises:
+def _create_hls(segment_duration, port):
     from jasna.streaming import HlsStreamingServer
     return HlsStreamingServer(segment_duration=segment_duration, port=port)
-""")
-            var hls_server = HlsServer(args.stream_segment_duration, args.stream_port)
+""", file=True)
+
+            var hls_server = HlsServer._create_hls(args.stream_segment_duration, args.stream_port)
             hls_server.start()
 
             if not args.no_browser:
@@ -739,7 +750,7 @@ def _create_hls(segment_duration, port) raises:
             try:
                 while True:
                     var video_path = hls_server.wait_for_video()
-                    pipeline = make_pipeline(
+                    pipeline = make_pipeline._make_pipeline(
                         PythonObject(String(video_path)),
                         PythonObject(""),
                         detection_model, restoration_pipeline,
@@ -770,7 +781,7 @@ def _create_hls(segment_duration, port) raises:
                 hls_server.stop()
 
         elif is_streaming:
-            pipeline = make_pipeline(
+            pipeline = make_pipeline._make_pipeline(
                 PythonObject(args.input),
                 PythonObject(args.output),
                 detection_model, restoration_pipeline,
@@ -793,7 +804,7 @@ def _create_hls(segment_duration, port) raises:
             )
         else:
             # Normal processing mode
-            pipeline = make_pipeline(
+            pipeline = make_pipeline._make_pipeline(
                 PythonObject(args.input),
                 PythonObject(args.output),
                 detection_model, restoration_pipeline,
@@ -843,11 +854,12 @@ def main_entry() raises:
     var argv = sys_mod.argv
     if len(argv) >= 3 and argv[1] == "--compile-engines":
         var compile_fn = Python.evaluate("""
-def _subprocess_compile(json_str) raises:
+def _subprocess_compile(json_str):
     from jasna.engine_compiler import EngineCompilationRequest, _subprocess_compile
     _subprocess_compile(EngineCompilationRequest.from_json(json_str))
-""")
-        compile_fn(argv[2])
+""", file=True)
+
+        compile_fn._subprocess_compile(argv[2])
         sys_mod.exit(0)
 
     # Multiprocessing guard
@@ -863,13 +875,15 @@ def _subprocess_compile(json_str) raises:
 
     # Bootstrap
     var bootstrap = Python.evaluate("""
-def _bootstrap() raises:
+def _bootstrap():
     from jasna.bootstrap import sanitize_sys_path_for_local_dev
     from pathlib import Path
+    import os
     if not getattr(__import__('sys'), 'frozen', False):
-        sanitize_sys_path_for_local_dev(Path(__file__).resolve().parent)
-""")
-    bootstrap()
+        sanitize_sys_path_for_local_dev(Path(os.getcwd()).resolve())
+""", file=True)
+
+    bootstrap._bootstrap()
 
     multiprocessing.freeze_support()
     _run_cli()

@@ -37,7 +37,7 @@ def setup_python_path() raises:
 def ensure_mock_modules() raises:
     """Ensure mock detection/restoration modules exist for testing without model weights."""
     var create_mocks = Python.evaluate("""
-def _ensure_mocks() raises:
+def _ensure_mocks():
     import sys
     import types
     import torch
@@ -64,7 +64,7 @@ def _ensure_mocks() raises:
             def close(self):
                 pass
         
-        def create_mock_detection_model(device) raises:
+        def create_mock_detection_model(device):
             return MockDetectionModel(device)
         
         mock_det.MockDetectionModel = MockDetectionModel
@@ -97,7 +97,7 @@ def _ensure_mocks() raises:
     # Mock bootstrap
     if 'jasna.bootstrap' not in sys.modules:
         mock_boot = types.ModuleType('jasna.bootstrap')
-        def sanitize_sys_path_for_local_dev(path) raises:
+        def sanitize_sys_path_for_local_dev(path):
             pass
         mock_boot.sanitize_sys_path_for_local_dev = sanitize_sys_path_for_local_dev
         sys.modules['jasna.bootstrap'] = mock_boot
@@ -144,10 +144,10 @@ def _ensure_mocks() raises:
         class _MockResult:
             use_basicvsrpp_tensorrt = False
         
-        def ensure_engines_compiled(req) raises:
+        def ensure_engines_compiled(req):
             return _MockResult()
         
-        def _subprocess_compile(req) raises:
+        def _subprocess_compile(req):
             pass
         
         mock_ec.EngineCompilationRequest = EngineCompilationRequest
@@ -158,7 +158,7 @@ def _ensure_mocks() raises:
     # Mock _suppress_noise
     if 'jasna._suppress_noise' not in sys.modules:
         mock_sn = types.ModuleType('jasna._suppress_noise')
-        def install() raises:
+        def install():
             pass
         mock_sn.install = install
         sys.modules['jasna._suppress_noise'] = mock_sn
@@ -166,9 +166,9 @@ def _ensure_mocks() raises:
     # Mock benchmark
     if 'jasna.benchmark' not in sys.modules:
         mock_bm = types.ModuleType('jasna.benchmark')
-        def run_benchmark_cli(args) raises:
+        def run_benchmark_cli(args):
             print("Benchmark mode not available in Mojo port")
         mock_bm.run_benchmark_cli = run_benchmark_cli
         sys.modules['jasna.benchmark'] = mock_bm
-""")
-    create_mocks()
+""", file=True)
+    create_mocks._ensure_mocks()

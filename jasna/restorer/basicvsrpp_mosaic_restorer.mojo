@@ -4,7 +4,7 @@
 from std.python import Python, PythonObject
 
 
-alias INFERENCE_SIZE = 256
+comptime INFERENCE_SIZE = 256
 
 
 struct BasicvsrppMosaicRestorer:
@@ -44,15 +44,16 @@ struct BasicvsrppMosaicRestorer:
         if use_tensorrt and String(py=self.device.type) == "cuda":
             # Try to load with TensorRT sub-engines
             var load_model = Python.evaluate("""
-def _load_model(config, checkpoint_path, device, fp16) raises:
+def _load_model(config, checkpoint_path, device, fp16):
     from jasna.models.basicvsrpp.inference import load_model
-    return load_model(config, checkpoint_path, device, fp16)
-""")
-            var pytorch_model = load_model(config, checkpoint_path, self.device, fp16)
+    return load_model._load_model(config, checkpoint_path, device, fp16)
+""", file=True)
+
+            var pytorch_model = load_model._load_model(config, checkpoint_path, self.device, fp16)
 
             # Try to create split forward (TensorRT)
             var create_split = Python.evaluate("""
-def _try_create_split(model, weights_path, device, fp16, max_clip_size) raises:
+def _try_create_split(model, weights_path, device, fp16, max_clip_size):
     try:
         from jasna.restorer.basicvsrpp_sub_engines import create_split_forward
         return create_split_forward(
@@ -64,8 +65,9 @@ def _try_create_split(model, weights_path, device, fp16, max_clip_size) raises:
         )
     except Exception:
         return None
-""")
-            self._split_forward = create_split(
+""", file=True)
+
+            self._split_forward = create_split._try_create_split(
                 pytorch_model, checkpoint_path, self.device, fp16, max_clip_size
             )
 
@@ -76,11 +78,12 @@ def _try_create_split(model, weights_path, device, fp16, max_clip_size) raises:
                 print("BasicVSR++ sub-engines not found, using PyTorch model (fp16=" + String(fp16) + ")")
         else:
             var load_model = Python.evaluate("""
-def _load_model(config, checkpoint_path, device, fp16) raises:
+def _load_model(config, checkpoint_path, device, fp16):
     from jasna.models.basicvsrpp.inference import load_model
-    return load_model(config, checkpoint_path, device, fp16)
-""")
-            self.model = load_model(config, checkpoint_path, self.device, fp16)
+    return load_model._load_model(config, checkpoint_path, device, fp16)
+""", file=True)
+
+            self.model = load_model._load_model(config, checkpoint_path, self.device, fp16)
             print("BasicVSR++ loaded from checkpoint: " + checkpoint_path + " (fp16=" + String(fp16) + ")")
 
     def close(mut self) raises:
