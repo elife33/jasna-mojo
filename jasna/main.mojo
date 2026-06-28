@@ -87,6 +87,7 @@ struct Args(Movable, Copyable):
     var detection_model_path: String
     var detection_score_threshold: Float64
     var detection_max_candidates: Int
+    var allow_mock_models: Bool
     # Streaming
     var stream: Bool
     var stream_port: Int
@@ -136,6 +137,7 @@ struct Args(Movable, Copyable):
         self.detection_model_path = ""
         self.detection_score_threshold = 0.25
         self.detection_max_candidates = 4096
+        self.allow_mock_models = False
         self.stream = False
         self.stream_port = 8765
         self.stream_segment_duration = 4.0
@@ -214,6 +216,8 @@ def _build_parser(default_model_path):
     detection.add_argument("--detection-model-path", type=str, default="")
     detection.add_argument("--detection-score-threshold", type=float, default=0.25)
     detection.add_argument("--detection-max-candidates", type=int, default=4096)
+    detection.add_argument("--allow-mock-models", action="store_true",
+                           help="Allow placeholder models when weights are missing (for smoke tests only)")
 
     streaming = parser.add_argument_group("Streaming")
     streaming.add_argument("--stream", action="store_true")
@@ -236,6 +240,16 @@ def _build_parser(default_model_path):
 
     var default_model_path = _default_model_weight_path("lada_mosaic_restoration_model_generic_v1.2.pth")
     var parser = build_parser._build_parser(default_model_path)
+
+    for a in argv:
+        if a == "--help" or a == "-h":
+            print(String(py=parser.format_help()))
+            var sys_mod = Python.import_module("sys")
+            sys_mod.exit(0)
+        if a == "--version":
+            print("0.6.0-alpha5")
+            var sys_mod = Python.import_module("sys")
+            sys_mod.exit(0)
 
     # Parse args
     var py_argv = Python.list([PythonObject(a) for a in argv])
@@ -279,6 +293,7 @@ def _build_parser(default_model_path):
     args.detection_model_path = String(py=parsed.detection_model_path or "")
     args.detection_score_threshold = Float64(py=parsed.detection_score_threshold)
     args.detection_max_candidates = Int(py=parsed.detection_max_candidates)
+    args.allow_mock_models = Bool(py=parsed.allow_mock_models)
     args.stream = Bool(py=parsed.stream)
     args.stream_port = Int(py=parsed.stream_port)
     args.stream_segment_duration = Float64(py=parsed.stream_segment_duration)
@@ -519,6 +534,8 @@ def _make_signal_handler(pause_requested):
     # Check detection model path
     var detection_model = PythonObject()
     if not Bool(det_path.exists()):
+        if not args.allow_mock_models:
+            raise Error("Detection model weights not found at " + String(py=det_path) + ". Provide --detection-model-path or pass --allow-mock-models for smoke tests.")
         print("Warning: Detection model weights not found at " + String(py=det_path) + ". Using mock detection model.")
         var create_mock = Python.evaluate("""
 def _create_mock(device):
@@ -532,6 +549,8 @@ def _create_mock(device):
     var restoration_model_path = args.restoration_model_path
     var rest_path = pathlib.Path(restoration_model_path)
     if not Bool(rest_path.exists()):
+        if not args.allow_mock_models:
+            raise Error("Restoration model weights not found at " + restoration_model_path + ". Provide --restoration-model-path or pass --allow-mock-models for smoke tests.")
         print("Warning: Restoration model weights not found at " + restoration_model_path + ". Using mock restoration model.")
         restoration_model_path = ""
 
@@ -686,6 +705,8 @@ def _build_detection(det_name, det_path, batch_size, device, score_threshold, ma
          detection_score_threshold, tuned_candidates, fp16)
 
         if detection_model is None:
+            if not args.allow_mock_models:
+                raise Error("Detection model could not be initialized from " + String(py=det_path))
             var create_mock = Python.evaluate("""
 def _create_mock(device):
     from jasna.mock_detection import create_mock_detection_model

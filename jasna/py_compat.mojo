@@ -16,30 +16,31 @@ def _hasattr(obj: PythonObject, name: String) raises -> Bool:
 
 
 def setup_python_path() raises:
-    """Add the original jasna Python package to sys.path for interop."""
-    var sys_mod = Python.import_module("sys")
-    var pathlib = Python.import_module("pathlib")
-    var os_mod = Python.import_module("os")
+    """Configure Python import paths from environment variables."""
+    var configure = Python.evaluate("""
+def _configure_python_path():
+    import os
+    import sys
+    from pathlib import Path
 
-    # Add py313 site-packages so av, torch, etc. are found
-    # This must be added BEFORE cwd to avoid local torch/ shadowing real PyTorch
-    var py313_site = pathlib.Path("/Users/elife/py313/lib/python3.13/site-packages")
-    if Bool(py313_site.is_dir()):
-        var py313_str = String(py313_site)
-        if py313_str not in sys_mod.path:
-            sys_mod.path.append(py313_str)
+    extra_paths = os.environ.get("JASNA_PYTHON_PATH", "")
+    for part in extra_paths.split(os.pathsep):
+        if part and part not in sys.path:
+            sys.path.append(part)
 
-    # Add original jasna directory to path if it exists
-    var original_path = pathlib.Path("/Volumes/miniMate/work/lab/jasna")
-    if Bool(original_path.is_dir()):
-        var path_str = String(original_path)
-        if path_str not in sys_mod.path:
-            sys_mod.path.insert(0, path_str)
+    original_path = os.environ.get("JASNA_ORIGINAL_JASNA_PATH", "")
+    if original_path:
+        path = Path(original_path).expanduser().resolve()
+        if path.is_dir():
+            path_str = str(path)
+            if path_str not in sys.path:
+                sys.path.insert(0, path_str)
 
-    # Add current directory
-    var cwd = String(py=os_mod.getcwd())
-    if cwd not in sys_mod.path:
-        sys_mod.path.insert(0, cwd)
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+""", file=True)
+    configure._configure_python_path()
 
 
 def ensure_mock_modules() raises:

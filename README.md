@@ -29,6 +29,8 @@ Device selection is automatic (`--device auto`) or manual (`--device cuda:0`, `-
 - `numpy`, `opencv-python`, `tqdm`
 - `ffmpeg` + `ffprobe` (major version 8)
 - `mkvmerge` (MKVToolNix)
+- Model weights in a local `model_weights/` directory, or paths supplied with
+  `--restoration-model-path` and `--detection-model-path`
 
 Optional (NVIDIA only):
 - TensorRT, `python_vali`, `PyNvVideoCodec`
@@ -36,27 +38,47 @@ Optional (NVIDIA only):
 ## Building
 
 ```bash
-mojo build jasna-mojo -o jasna
+mojo build jasna/__main__.mojo -o jasna_bin
 ```
+
+If Mojo or Python are installed outside your `PATH`, set:
+
+```bash
+MOJO_BIN=/path/to/mojo PYTHON_BIN=/path/to/python3 ./run.sh --help
+```
+
+Python import paths can be extended with `JASNA_PYTHON_PATH`. If you need to
+reuse modules from the original Python Jasna checkout, set
+`JASNA_ORIGINAL_JASNA_PATH=/path/to/jasna`.
 
 ## Usage
 
 ```bash
 # Process a video
-jasna --input video.mp4 --output restored.mp4
+./jasna_bin --input video.mp4 --output restored.mp4
 
 # Auto device selection
-jasna --input video.mp4 --output restored.mp4 --device auto
+./jasna_bin --input video.mp4 --output restored.mp4 --device auto
 
 # Apple Silicon
-jasna --input video.mp4 --output restored.mp4 --device mps
+./jasna_bin --input video.mp4 --output restored.mp4 --device mps
 
 # Streaming mode
-jasna --stream
+./jasna_bin --stream
 
 # See all options
-jasna --help
+./jasna_bin --help
 ```
+
+Missing model weights are treated as an error by default. For smoke tests only,
+you can pass `--allow-mock-models` to run placeholder detection/restoration
+models.
+
+## Testing
+
+The current Mojo toolchain used for this project does not expose a `mojo test`
+subcommand. Use the build command above as the minimum verification step, and
+add executable smoke tests as the toolchain support matures.
 
 ## Project Structure
 
@@ -103,4 +125,4 @@ jasna-mojo/
 
 ## License
 
-Same as original Jasna project.
+AGPL-3.0, matching the upstream Jasna project.
