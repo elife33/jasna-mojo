@@ -16,17 +16,27 @@ def _hasattr(obj: PythonObject, name: String) raises -> Bool:
 
 
 def setup_python_path() raises:
-    """Configure Python import paths from environment variables."""
+    """Configure Python import paths without trusting the process cwd."""
     var configure = Python.evaluate("""
 def _configure_python_path():
     import os
     import sys
     from pathlib import Path
 
+    module = sys.modules.get("jasna.py_compat")
+    module_file = getattr(module, "__file__", "") if module is not None else ""
+    if module_file:
+        repo_root = Path(module_file).resolve().parent.parent
+        repo_root_str = str(repo_root)
+        if repo_root_str not in sys.path:
+            sys.path.append(repo_root_str)
+
     extra_paths = os.environ.get("JASNA_PYTHON_PATH", "")
     for part in extra_paths.split(os.pathsep):
-        if part and part not in sys.path:
-            sys.path.append(part)
+        if part:
+            path = str(Path(part).expanduser().resolve())
+            if path not in sys.path:
+                sys.path.append(path)
 
     original_path = os.environ.get("JASNA_ORIGINAL_JASNA_PATH", "")
     if original_path:
@@ -34,11 +44,7 @@ def _configure_python_path():
         if path.is_dir():
             path_str = str(path)
             if path_str not in sys.path:
-                sys.path.insert(0, path_str)
-
-    cwd = os.getcwd()
-    if cwd not in sys.path:
-        sys.path.insert(0, cwd)
+                sys.path.append(path_str)
 """, file=True)
     configure._configure_python_path()
 

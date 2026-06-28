@@ -49,7 +49,9 @@ MOJO_BIN=/path/to/mojo PYTHON_BIN=/path/to/python3 ./run.sh --help
 
 Python import paths can be extended with `JASNA_PYTHON_PATH`. If you need to
 reuse modules from the original Python Jasna checkout, set
-`JASNA_ORIGINAL_JASNA_PATH=/path/to/jasna`.
+`JASNA_ORIGINAL_JASNA_PATH=/path/to/jasna`. Only point these variables at
+directories you trust; Python code imported from those paths runs with your
+user permissions.
 
 ## Usage
 
@@ -73,6 +75,27 @@ reuse modules from the original Python Jasna checkout, set
 Missing model weights are treated as an error by default. For smoke tests only,
 you can pass `--allow-mock-models` to run placeholder detection/restoration
 models.
+
+## Security and Privacy
+
+Jasna-Mojo runs locally and does not include telemetry or cloud upload code.
+External tools are invoked with argument lists rather than through a shell.
+
+Model weights are executable trust boundaries. PyTorch `.pt` / `.pth`
+checkpoints and TensorRT engines can execute code or native kernels when loaded
+by the underlying Python stack, so use only weights from sources you trust.
+
+The current working directory is not added to the front of Python's import path.
+Additional Python module paths must be configured explicitly with
+`JASNA_PYTHON_PATH` or `JASNA_ORIGINAL_JASNA_PATH`, and those paths should be
+treated as trusted code.
+
+Video inputs, restored outputs, HLS segments, working directories, and
+`--status-file` contents may contain sensitive filenames or video data. Store
+them on trusted local disks and delete temporary working data when processing is
+complete. Streaming mode opens a local web UI by default; use `--no-browser` if
+you do not want the browser opened automatically, and avoid exposing the stream
+port on untrusted networks.
 
 ## Testing
 

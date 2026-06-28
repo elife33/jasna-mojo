@@ -9,10 +9,11 @@ import types
 import importlib
 from pathlib import Path
 
-# Try to import from original jasna, fall back to mocks
-_original_jasna_path = Path(__file__).resolve().parent.parent.parent / "jasna"
-if _original_jasna_path.is_dir() and str(_original_jasna_path) not in sys.path:
-    sys.path.insert(0, str(_original_jasna_path.parent))
+# Keep imports anchored to this checkout unless callers explicitly configure
+# additional trusted paths through the Mojo/Python environment.
+_repo_root = Path(__file__).resolve().parent.parent
+if str(_repo_root) not in sys.path:
+    sys.path.append(str(_repo_root))
 
 
 def _try_import(module_path, fallback=None):
