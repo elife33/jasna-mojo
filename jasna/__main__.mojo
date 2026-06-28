@@ -31,4 +31,14 @@ def main() raises:
         except _:
             pass
 
-    main_entry()
+    try:
+        main_entry()
+    except e:
+        # Python's sys.exit() raises SystemExit which Mojo wraps as Error
+        var err_str = String(e)
+        if err_str == "1" or err_str == "0":
+            # SystemExit with numeric code — exit gracefully
+            if err_str != "0":
+                pass  # Error message already printed by caller
+            return
+        raise e^

@@ -493,11 +493,12 @@ def _make_signal_handler(pause_requested):
         device = get_available_device("auto")
     else:
         device = torch.device(args.device)
-        var (device_ok, device_info) = validate_device_for_processing(device)
-        if not device_ok:
-            print("Error: " + device_info)
-            sys_mod.exit(1)
-        print("Selected device: " + device_info)
+
+    var (device_ok, device_info) = validate_device_for_processing(device)
+    if not device_ok:
+        print("Error: " + device_info)
+        sys_mod.exit(1)
+    print("Selected device: " + device_info)
 
     # Apply Apple Silicon auto-tune
     var (tuned_batch, tuned_clip, tuned_overlap, tuned_candidates) = _apply_apple_silicon_auto_tune(
