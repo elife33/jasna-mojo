@@ -1,0 +1,10 @@
+# Jasna-Mojo build configuration
+# Build: mojo build jasna-mojo -o jasna
+
+[package]
+name = "jasna"
+version = "0.6.0-alpha5"
+description = "Jasna - Mojo implementation (multi-hardware)"
+
+[dependencies]
+# No external Mojo packages required — Python interop handles ML/video libs
