@@ -488,11 +488,7 @@ def _make_signal_handler(pause_requested):
         raise Error("--temporal-overlap must satisfy 2*--temporal-overlap < --max-clip-size")
 
     # Device selection
-    var device = PythonObject()
-    if args.device == "auto":
-        device = get_available_device("auto")
-    else:
-        device = torch.device(args.device)
+    var device = get_available_device("auto") if args.device == "auto" else torch.device(args.device)
 
     var (device_ok, device_info) = validate_device_for_processing(device)
     if not device_ok:
