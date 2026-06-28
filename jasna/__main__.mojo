@@ -35,8 +35,13 @@ def main() raises:
         main_entry()
     except e:
         var traceback = Python.import_module("traceback")
-        traceback.print_exc()
+        var sys_mod2 = Python.import_module("sys")
+        try:
+            traceback.print_exc()
+        except _:
+            pass
         var err_str = String(e)
         if err_str == "1" or err_str == "0":
             return
+        print("Error: " + err_str)
         raise e^

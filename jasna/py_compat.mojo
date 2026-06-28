@@ -179,8 +179,10 @@ def _ensure_mocks():
         mock_bm.run_benchmark_cli = run_benchmark_cli
         sys.modules['jasna.benchmark'] = mock_bm
 
-    # Mock mmengine (required by basicvsrpp inference)
-    if 'mmengine' not in sys.modules:
+    # Mock mmengine only if not installed
+    try:
+        import mmengine
+    except ImportError:
         import types as _types
         import sys as _sys
         
@@ -230,19 +232,25 @@ def _ensure_mocks():
         
         _sys.meta_path.insert(0, _MmengineFinder())
 
-    # Mock mmcv if needed
-    if 'mmcv' not in sys.modules:
-        mock_mmcv = types.ModuleType('mmcv')
-        mock_mmcv.__path__ = []
-        sys.modules['mmcv'] = mock_mmcv
+    # Mock mmcv only if not installed
+    try:
+        import mmcv
+    except ImportError:
+        if 'mmcv' not in sys.modules:
+            mock_mmcv = types.ModuleType('mmcv')
+            mock_mmcv.__path__ = []
+            sys.modules['mmcv'] = mock_mmcv
 
-    # Mock torchvision if needed
-    if 'torchvision' not in sys.modules:
-        mock_tvs = types.ModuleType('torchvision')
-        mock_tvs.__path__ = []
-        mock_tvs_models = types.ModuleType('torchvision.models')
-        mock_tvs.models = mock_tvs_models
-        sys.modules['torchvision'] = mock_tvs
-        sys.modules['torchvision.models'] = mock_tvs_models
+    # Mock torchvision only if not installed
+    try:
+        import torchvision
+    except ImportError:
+        if 'torchvision' not in sys.modules:
+            mock_tvs = types.ModuleType('torchvision')
+            mock_tvs.__path__ = []
+            mock_tvs_models = types.ModuleType('torchvision.models')
+            mock_tvs.models = mock_tvs_models
+            sys.modules['torchvision'] = mock_tvs
+            sys.modules['torchvision.models'] = mock_tvs_models
 """, file=True)
     create_mocks._ensure_mocks()
