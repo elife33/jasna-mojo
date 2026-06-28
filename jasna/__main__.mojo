@@ -34,11 +34,9 @@ def main() raises:
     try:
         main_entry()
     except e:
-        # Python's sys.exit() raises SystemExit which Mojo wraps as Error
+        var traceback = Python.import_module("traceback")
+        traceback.print_exc()
         var err_str = String(e)
         if err_str == "1" or err_str == "0":
-            # SystemExit with numeric code — exit gracefully
-            if err_str != "0":
-                pass  # Error message already printed by caller
             return
         raise e^

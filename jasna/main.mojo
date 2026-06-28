@@ -337,9 +337,23 @@ def _mojo_dict_to_py(d: Dict[String, PythonObject]) raises -> PythonObject:
 def _run_cli() raises:
     """Main CLI entry point."""
     var sys_mod = Python.import_module("sys")
+    # Mojo's argv includes the program name; sync to Python's sys.argv
+    from std.sys import argv as mojo_argv
+    var raw_argv = List[String]()
+    for a in mojo_argv():
+        raw_argv.append(String(a))
+    # Skip leading -- separator if present (from `mojo run file -- args`)
+    var skip_first = False
+    if len(raw_argv) > 1 and raw_argv[1] == "--":
+        skip_first = True
     var argv_list = List[String]()
-    for a in sys_mod.argv[1:]:
-        argv_list.append(String(a))
+    for i in range(1, len(raw_argv)):
+        if skip_first and i == 1:
+            continue
+        argv_list.append(raw_argv[i])
+    # Inject into Python sys.argv so Python code can also access it
+    var py_argv = Python.list([PythonObject(raw_argv[0])] + [PythonObject(a) for a in argv_list])
+    sys_mod.argv = py_argv
 
     var args = parse_args(argv_list)
 
@@ -430,8 +444,8 @@ def _install_noise():
     var start_frame_val = 0
     if args.start_frame:
         start_frame_val = args.start_frame.value()
-    var pause_requested = Python.list([False])
-    var current_frame_shared = Python.list([start_frame_val])
+    var pause_requested = Python.evaluate("[False]")
+    var current_frame_shared = Python.evaluate("[" + String(start_frame_val) + "]")
 
     var signal_handler = Python.evaluate("""
 def _make_signal_handler(pause_requested):
@@ -692,7 +706,9 @@ def _create_mock(device):
 
     # Create pipeline
     var make_pipeline = Python.evaluate("""
-def _make_pipeline(input_video, output_video, detection_model, restoration_pipeline,
+def _make_pipeline(input_video, output_video, detection_model_name, detection_model_path,
+                   detection_score_threshold, detection_max_candidates,
+                   restoration_pipeline,
                    codec, encoder_settings, batch_size, device, max_clip_size,
                    temporal_overlap, enable_crossfade, fp16, no_progress,
                    working_directory, start_frame, duration_frames,
@@ -706,7 +722,10 @@ def _make_pipeline(input_video, output_video, detection_model, restoration_pipel
     return Pipeline(
         input_video=input_path,
         output_video=output_path,
-        detection_model=detection_model,
+        detection_model_name=detection_model_name,
+        detection_model_path=detection_model_path,
+        detection_score_threshold=detection_score_threshold,
+        detection_max_candidates=detection_max_candidates,
         restoration_pipeline=restoration_pipeline,
         codec=codec,
         encoder_settings=encoder_settings,
@@ -750,7 +769,9 @@ def _create_hls(segment_duration, port):
                     pipeline = make_pipeline._make_pipeline(
                         PythonObject(String(video_path)),
                         PythonObject(""),
-                        detection_model, restoration_pipeline,
+                        PythonObject(detection_model_name), det_path,
+                        PythonObject(detection_score_threshold), PythonObject(tuned_candidates),
+                        restoration_pipeline,
                         PythonObject(codec), _mojo_dict_to_py(enc_dict),
                         PythonObject(tuned_batch), device,
                         PythonObject(tuned_clip), PythonObject(tuned_overlap),
@@ -781,7 +802,9 @@ def _create_hls(segment_duration, port):
             pipeline = make_pipeline._make_pipeline(
                 PythonObject(args.input),
                 PythonObject(args.output),
-                detection_model, restoration_pipeline,
+                PythonObject(detection_model_name), det_path,
+                PythonObject(detection_score_threshold), PythonObject(tuned_candidates),
+                restoration_pipeline,
                 PythonObject(codec), _mojo_dict_to_py(enc_dict),
                 PythonObject(tuned_batch), device,
                 PythonObject(tuned_clip), PythonObject(tuned_overlap),
@@ -804,7 +827,9 @@ def _create_hls(segment_duration, port):
             pipeline = make_pipeline._make_pipeline(
                 PythonObject(args.input),
                 PythonObject(args.output),
-                detection_model, restoration_pipeline,
+                PythonObject(detection_model_name), det_path,
+                PythonObject(detection_score_threshold), PythonObject(tuned_candidates),
+                restoration_pipeline,
                 PythonObject(codec), _mojo_dict_to_py(enc_dict),
                 PythonObject(tuned_batch), device,
                 PythonObject(tuned_clip), PythonObject(tuned_overlap),
@@ -848,6 +873,19 @@ def main_entry() raises:
         os_mod.environ.setdefault("OMP_WAIT_POLICY", "passive")
 
     # Handle compile-engines subcommand
+    from std.sys import argv as mojo_argv
+    var raw_argv = List[String]()
+    for a in mojo_argv():
+        raw_argv.append(String(a))
+    # Skip leading -- separator
+    var start_idx = 1
+    if len(raw_argv) > 1 and raw_argv[1] == "--":
+        start_idx = 2
+    var cli_argv = List[String]()
+    for i in range(start_idx, len(raw_argv)):
+        cli_argv.append(raw_argv[i])
+    var py_argv = Python.list([PythonObject(raw_argv[0])] + [PythonObject(a) for a in cli_argv])
+    sys_mod.argv = py_argv
     var argv = sys_mod.argv
     if len(argv) >= 3 and argv[1] == "--compile-engines":
         var compile_fn = Python.evaluate("""

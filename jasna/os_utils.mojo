@@ -202,10 +202,11 @@ def check_ascii_install_path() raises -> Tuple[Bool, String]:
     """Check that the install path contains only ASCII characters."""
     var Path = Python.import_module("pathlib")
     var os_mod = Python.import_module("os")
-    var path = Path(os_mod.getcwd())
+    var path = Path.Path(os_mod.getcwd())
     var path_str = String(py=path)
     try:
-        Python.evaluate("lambda s: s.encode('ascii')")(path_str)
+        var builtins = Python.import_module("builtins")
+        var ascii_str = builtins.ascii(path)
         return (True, path_str)
     except:
         return (False, path_str)

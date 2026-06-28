@@ -21,6 +21,14 @@ def setup_python_path() raises:
     var pathlib = Python.import_module("pathlib")
     var os_mod = Python.import_module("os")
 
+    # Add py313 site-packages so av, torch, etc. are found
+    # This must be added BEFORE cwd to avoid local torch/ shadowing real PyTorch
+    var py313_site = pathlib.Path("/Users/elife/py313/lib/python3.13/site-packages")
+    if Bool(py313_site.is_dir()):
+        var py313_str = String(py313_site)
+        if py313_str not in sys_mod.path:
+            sys_mod.path.append(py313_str)
+
     # Add original jasna directory to path if it exists
     var original_path = pathlib.Path("/Volumes/miniMate/work/lab/jasna")
     if Bool(original_path.is_dir()):
@@ -170,5 +178,71 @@ def _ensure_mocks():
             print("Benchmark mode not available in Mojo port")
         mock_bm.run_benchmark_cli = run_benchmark_cli
         sys.modules['jasna.benchmark'] = mock_bm
+
+    # Mock mmengine (required by basicvsrpp inference)
+    if 'mmengine' not in sys.modules:
+        import types as _types
+        import sys as _sys
+        
+        class _AutoMock:
+            def __init__(self, *a, **k):
+                name = a[0] if a else k.get('name', 'mock')
+                object.__setattr__(self, '_name', name)
+                object.__setattr__(self, '__path__', [])
+                object.__setattr__(self, '__package__', name)
+                object.__setattr__(self, '__spec__', None)
+                object.__setattr__(self, '__loader__', None)
+                object.__setattr__(self, '__file__', None)
+            def __getattr__(self, name):
+                if name.startswith('__') and name.endswith('__'):
+                    raise AttributeError(name)
+                if name.startswith('_'):
+                    raise AttributeError(name)
+                obj = _AutoMock(self._name + '.' + name)
+                object.__setattr__(self, name, obj)
+                return obj
+            def __call__(self, *a, **k):
+                return _AutoMock(self._name + '()')
+        
+        def _make_mock_module(modname):
+            mod = _AutoMock(modname)
+            _sys.modules[modname] = mod
+            return mod
+        
+        # Install mmengine with auto-mock for any submodule
+        mock_mme = _make_mock_module('mmengine')
+        
+        # Meta path finder to auto-mock any mmengine.* import
+        from importlib.abc import MetaPathFinder
+        from importlib.machinery import ModuleSpec
+        class _AutoMockLoader:
+            def create_module(self, spec):
+                return _AutoMock(spec.name)
+            def exec_module(self, module):
+                pass
+        class _MmengineFinder(MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                prefixes = ('mmengine.', 'mmcv.', 'mmdet.', 'psutil', 'psutil.',
+                            'mmengine', 'mmcv', 'mmdet')
+                if any(fullname == p or fullname.startswith(p + '.') for p in prefixes):
+                    return ModuleSpec(fullname, _AutoMockLoader(), is_package=True)
+                return None
+        
+        _sys.meta_path.insert(0, _MmengineFinder())
+
+    # Mock mmcv if needed
+    if 'mmcv' not in sys.modules:
+        mock_mmcv = types.ModuleType('mmcv')
+        mock_mmcv.__path__ = []
+        sys.modules['mmcv'] = mock_mmcv
+
+    # Mock torchvision if needed
+    if 'torchvision' not in sys.modules:
+        mock_tvs = types.ModuleType('torchvision')
+        mock_tvs.__path__ = []
+        mock_tvs_models = types.ModuleType('torchvision.models')
+        mock_tvs.models = mock_tvs_models
+        sys.modules['torchvision'] = mock_tvs
+        sys.modules['torchvision.models'] = mock_tvs_models
 """, file=True)
     create_mocks._ensure_mocks()
