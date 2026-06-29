@@ -76,6 +76,26 @@ Missing model weights are treated as an error by default. For smoke tests only,
 you can pass `--allow-mock-models` to run placeholder detection/restoration
 models.
 
+## Benchmark
+
+Reference run on a 30 second 1280x720 H.264 sample:
+
+- Machine: Mac mini with Apple M4 Pro, 12-core CPU, 16-core GPU, 64 GB memory
+- OS: macOS 26.5.1
+- Device selected by `--device auto`: Apple Silicon GPU via PyTorch MPS
+- Detection model: `lada-yolo-v4`
+- Restoration model: BasicVSR++ generic v1.2
+- Command options: `--log-level info --codec h264`
+- Input: 24 fps, 30.083 seconds, 769 reported source frames
+- Output: 24 fps, 30.000 seconds, 720 frames
+- Wall time: 55.90 seconds
+- End-of-run throughput: 18.3 fps
+- Reported memory: MPS VRAM max 1566 MiB, average 1410 MiB; RAM max 4991 MiB,
+  average 1858 MiB
+
+Benchmark numbers depend on model weights, PyTorch/torchvision builds, decoder
+and encoder availability, clip content, and thermal state.
+
 ## Security and Privacy
 
 Jasna-Mojo runs locally and does not include telemetry or cloud upload code.
